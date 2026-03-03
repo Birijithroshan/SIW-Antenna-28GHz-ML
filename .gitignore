@@ -1,0 +1,19 @@
+# Generated dataset
+dataset_1000samples.csv
+
+# Trained model artifacts
+best_model.pkl
+scaler.pkl
+training_results.csv
+
+# Generated plots
+model_comparison.png
+bandwidth_predictions.png
+
+# CatBoost training logs
+catboost_info/
+
+# Python bytecode
+__pycache__/
+*.pyc
+*.pyo
