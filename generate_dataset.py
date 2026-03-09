@@ -1,7 +1,7 @@
 """
 Generate 1000-sample dataset for 28 GHz Triple-Band Circular SIW Antenna
-6 Inputs: S1, S2, S3, S4, d_via, Wf
-6 Outputs: Freq1_GHz, Freq2_GHz, Freq3_GHz, Bandwidth1_MHz, Bandwidth2_MHz, Bandwidth3_MHz
+10 Inputs : S1_mm, S2_mm, S3_mm, S4_mm, d_mm, Wf_mm, Lf_mm, RSIW_mm, p_mm, h_mm
+ 6 Outputs: f1_GHz, f2_GHz, f3_GHz, BW1_GHz, BW2_GHz, BW3_GHz
 """
 
 import numpy as np
@@ -32,110 +32,141 @@ S2 = np.clip(S2, 4.20, S1 - 0.30)
 S3 = np.clip(S3, 3.00, S2 - 0.30)
 S4 = np.clip(S4, 1.80, S3 - 0.30)
 
-# Via diameter and feed width
-d_via = np.random.uniform(0.45, 0.65, n_samples)
+# Via diameter (d_mm)
+d = np.random.uniform(0.45, 0.65, n_samples)
+
+# Feed line width (Wf_mm)
 Wf = np.random.uniform(1.00, 1.20, n_samples)
 
-print(f"   S1:    {S1.min():.2f} - {S1.max():.2f} mm")
-print(f"   S2:    {S2.min():.2f} - {S2.max():.2f} mm")
-print(f"   S3:    {S3.min():.2f} - {S3.max():.2f} mm")
-print(f"   S4:    {S4.min():.2f} - {S4.max():.2f} mm")
-print(f"   d_via: {d_via.min():.2f} - {d_via.max():.2f} mm")
-print(f"   Wf:    {Wf.min():.2f} - {Wf.max():.2f} mm")
+# Feed line length (Lf_mm)
+Lf = np.random.uniform(5.00, 10.00, n_samples)
+
+# SIW cavity radius (RSIW_mm) — dominant factor for resonant frequency
+RSIW = np.random.uniform(7.00, 9.50, n_samples)
+
+# Via pitch / spacing (p_mm)
+p = np.random.uniform(0.80, 1.40, n_samples)
+
+# Substrate height (h_mm)
+h = np.random.uniform(0.508, 1.575, n_samples)
+
+print(f"   S1_mm:   {S1.min():.3f} – {S1.max():.3f} mm")
+print(f"   S2_mm:   {S2.min():.3f} – {S2.max():.3f} mm")
+print(f"   S3_mm:   {S3.min():.3f} – {S3.max():.3f} mm")
+print(f"   S4_mm:   {S4.min():.3f} – {S4.max():.3f} mm")
+print(f"   d_mm:    {d.min():.3f} – {d.max():.3f} mm")
+print(f"   Wf_mm:   {Wf.min():.3f} – {Wf.max():.3f} mm")
+print(f"   Lf_mm:   {Lf.min():.3f} – {Lf.max():.3f} mm")
+print(f"   RSIW_mm: {RSIW.min():.3f} – {RSIW.max():.3f} mm")
+print(f"   p_mm:    {p.min():.3f} – {p.max():.3f} mm")
+print(f"   h_mm:    {h.min():.3f} – {h.max():.3f} mm")
+
+# Centers used for normalisation in empirical formulae
+S1_c, S2_c, S3_c, S4_c = 6.00, 5.00, 4.00, 3.00
+d_c, Wf_c, Lf_c = 0.55, 1.10, 7.50
+RSIW_c, p_c, h_c = 8.25, 1.10, 1.00
 
 # ========================================
-# FREQUENCY CALCULATIONS (Physics-based)
+# FREQUENCY CALCULATIONS (Physics-inspired empirical model)
 # ========================================
 print(f"\n[2/5] Calculating triple-band resonant frequencies...")
 
-# Freq1 (K-band: ~26.5-28.5 GHz)
-f1_base = 27.0
-f1 = (f1_base
-      + 0.35 * (S1 - 6.0)
-      + 0.28 * (S2 - 5.0)
-      + 0.20 * (S3 - 4.0)
-      + 0.15 * (S4 - 3.0)
-      + 0.40 * (d_via - 0.55)
-      + 0.25 * (Wf - 1.10)
-      + 0.08 * (S1 * S2 / 30.0)
-      + 0.05 * (d_via * Wf)
-      + 0.02 * ((S1 - 6.0) ** 2)
+# f1 — K-band ~27 GHz
+f1 = (27.0
+      - 0.55 * (RSIW - RSIW_c)    # larger cavity  → lower resonance
+      - 0.30 * (h    - h_c)        # thicker substrate → loading effect
+      + 0.20 * (S1   - S1_c)
+      + 0.15 * (S2   - S2_c)
+      + 0.10 * (S3   - S3_c)
+      + 0.08 * (S4   - S4_c)
+      + 0.30 * (d    - d_c)
+      + 0.15 * (Wf   - Wf_c)
+      - 0.02 * (Lf   - Lf_c)
+      - 0.10 * (p    - p_c)
+      + 0.05 * (S1   - S1_c) * (S2 - S2_c)
       + np.random.normal(0, 0.015, n_samples))
-Freq1_GHz = np.clip(np.round(f1, 2), 26.50, 28.50)
+f1_GHz = np.clip(np.round(f1, 3), 25.00, 29.50)
 
-# Freq2 (Ka-band lower: ~31-33 GHz)
-f2_base = 31.80
-f2 = (f2_base
-      + 0.40 * (S1 - 6.0)
-      + 0.32 * (S2 - 5.0)
-      + 0.25 * (S3 - 4.0)
-      + 0.20 * (S4 - 3.0)
-      + 0.35 * (d_via - 0.55)
-      + 0.22 * (Wf - 1.10)
-      + 0.06 * (S1 * S3 / 25.0)
-      + 0.04 * (d_via * Wf)
+# f2 — Ka-band lower ~32 GHz
+f2 = (32.0
+      - 0.60 * (RSIW - RSIW_c)
+      - 0.28 * (h    - h_c)
+      + 0.25 * (S1   - S1_c)
+      + 0.20 * (S2   - S2_c)
+      + 0.15 * (S3   - S3_c)
+      + 0.12 * (S4   - S4_c)
+      + 0.35 * (d    - d_c)
+      + 0.20 * (Wf   - Wf_c)
+      - 0.02 * (Lf   - Lf_c)
+      - 0.12 * (p    - p_c)
+      + 0.06 * (S1   - S1_c) * (S3 - S3_c)
       + np.random.normal(0, 0.018, n_samples))
-Freq2_GHz = np.clip(np.round(f2, 2), 30.50, 33.00)
+f2_GHz = np.clip(np.round(f2, 3), 29.50, 34.50)
 
-# Freq3 (Ka-band upper: ~33-35.5 GHz)
-f3_base = 34.00
-f3 = (f3_base
-      + 0.45 * (S1 - 6.0)
-      + 0.35 * (S2 - 5.0)
-      + 0.28 * (S3 - 4.0)
-      + 0.22 * (S4 - 3.0)
-      + 0.30 * (d_via - 0.55)
-      + 0.18 * (Wf - 1.10)
-      + 0.07 * (S2 * S4 / 16.0)
-      + 0.03 * (d_via * Wf)
+# f3 — Ka-band upper ~34 GHz
+f3 = (34.0
+      - 0.65 * (RSIW - RSIW_c)
+      - 0.25 * (h    - h_c)
+      + 0.30 * (S1   - S1_c)
+      + 0.22 * (S2   - S2_c)
+      + 0.18 * (S3   - S3_c)
+      + 0.14 * (S4   - S4_c)
+      + 0.30 * (d    - d_c)
+      + 0.18 * (Wf   - Wf_c)
+      - 0.02 * (Lf   - Lf_c)
+      - 0.08 * (p    - p_c)
+      + 0.07 * (S2   - S2_c) * (S4 - S4_c)
       + np.random.normal(0, 0.020, n_samples))
-Freq3_GHz = np.clip(np.round(f3, 2), 32.80, 35.50)
+f3_GHz = np.clip(np.round(f3, 3), 31.50, 37.00)
 
-print(f"   Freq1: {Freq1_GHz.min():.2f} - {Freq1_GHz.max():.2f} GHz (K-band)")
-print(f"   Freq2: {Freq2_GHz.min():.2f} - {Freq2_GHz.max():.2f} GHz (Ka-band lower)")
-print(f"   Freq3: {Freq3_GHz.min():.2f} - {Freq3_GHz.max():.2f} GHz (Ka-band upper)")
+print(f"   f1: {f1_GHz.min():.3f} – {f1_GHz.max():.3f} GHz  (K-band)")
+print(f"   f2: {f2_GHz.min():.3f} – {f2_GHz.max():.3f} GHz  (Ka-band lower)")
+print(f"   f3: {f3_GHz.min():.3f} – {f3_GHz.max():.3f} GHz  (Ka-band upper)")
 
 # ========================================
-# BANDWIDTH CALCULATIONS (Physics-based)
+# BANDWIDTH CALCULATIONS (in GHz)
 # ========================================
-print(f"\n[3/5] Calculating triple-band bandwidths...")
+print(f"\n[3/5] Calculating triple-band bandwidths (GHz)...")
 
-# BW1 (for Freq1)
-bw1 = (1950
-       + 120 * (Freq1_GHz - 27.0)
-       + 220 * (Wf - 1.10)
-       + 60 * (S1 - 6.0)
-       + 40 * (S2 - 5.0)
-       + 50 * (d_via - 0.55)
-       + 35 * (Wf * (Freq1_GHz - 27.0))
-       + np.random.normal(0, 10, n_samples))
-Bandwidth1_MHz = np.clip(np.round(bw1, 0), 1800, 2150)
+# BW1_GHz  (~1.95 GHz)
+bw1 = (1.95
+       + 0.12 * (f1_GHz - 27.0)
+       + 0.20 * (Wf   - Wf_c)
+       + 0.08 * (h    - h_c)
+       + 0.06 * (S1   - S1_c)
+       + 0.04 * (S2   - S2_c)
+       + 0.05 * (d    - d_c)
+       + 0.03 * (Lf   - Lf_c) * 0.01
+       + np.random.normal(0, 0.010, n_samples))
+BW1_GHz = np.clip(np.round(bw1, 3), 1.80, 2.15)
 
-# BW2 (for Freq2 - typically wider)
-bw2 = (2550
-       + 100 * (Freq2_GHz - 31.80)
-       + 200 * (Wf - 1.10)
-       + 55 * (S1 - 6.0)
-       + 45 * (S3 - 4.0)
-       + 40 * (d_via - 0.55)
-       + 30 * (Wf * (Freq2_GHz - 31.80))
-       + np.random.normal(0, 12, n_samples))
-Bandwidth2_MHz = np.clip(np.round(bw2, 0), 2400, 2750)
+# BW2_GHz  (~2.55 GHz)
+bw2 = (2.55
+       + 0.10 * (f2_GHz - 32.0)
+       + 0.18 * (Wf   - Wf_c)
+       + 0.07 * (h    - h_c)
+       + 0.05 * (S1   - S1_c)
+       + 0.04 * (S3   - S3_c)
+       + 0.04 * (d    - d_c)
+       + 0.03 * (Lf   - Lf_c) * 0.01
+       + np.random.normal(0, 0.012, n_samples))
+BW2_GHz = np.clip(np.round(bw2, 3), 2.40, 2.75)
 
-# BW3 (for Freq3)
-bw3 = (2100
-       + 110 * (Freq3_GHz - 34.0)
-       + 210 * (Wf - 1.10)
-       + 50 * (S2 - 5.0)
-       + 45 * (S4 - 3.0)
-       + 45 * (d_via - 0.55)
-       + 32 * (Wf * (Freq3_GHz - 34.0))
-       + np.random.normal(0, 11, n_samples))
-Bandwidth3_MHz = np.clip(np.round(bw3, 0), 1950, 2300)
+# BW3_GHz  (~2.10 GHz)
+bw3 = (2.10
+       + 0.11 * (f3_GHz - 34.0)
+       + 0.19 * (Wf   - Wf_c)
+       + 0.06 * (h    - h_c)
+       + 0.05 * (S2   - S2_c)
+       + 0.04 * (S4   - S4_c)
+       + 0.04 * (d    - d_c)
+       + 0.03 * (Lf   - Lf_c) * 0.01
+       + np.random.normal(0, 0.011, n_samples))
+BW3_GHz = np.clip(np.round(bw3, 3), 1.95, 2.35)
 
-print(f"   BW1: {Bandwidth1_MHz.min():.0f} - {Bandwidth1_MHz.max():.0f} MHz")
-print(f"   BW2: {Bandwidth2_MHz.min():.0f} - {Bandwidth2_MHz.max():.0f} MHz")
-print(f"   BW3: {Bandwidth3_MHz.min():.0f} - {Bandwidth3_MHz.max():.0f} MHz")
+print(f"   BW1: {BW1_GHz.min():.3f} – {BW1_GHz.max():.3f} GHz")
+print(f"   BW2: {BW2_GHz.min():.3f} – {BW2_GHz.max():.3f} GHz")
+print(f"   BW3: {BW3_GHz.min():.3f} – {BW3_GHz.max():.3f} GHz")
 
 # ========================================
 # CREATE DATAFRAME
@@ -144,18 +175,24 @@ print(f"\n[4/5] Building DataFrame...")
 
 
 df = pd.DataFrame({
-    'S1': np.round(S1, 2),
-    'S2': np.round(S2, 2),
-    'S3': np.round(S3, 2),
-    'S4': np.round(S4, 2),
-    'd_via': np.round(d_via, 2),
-    'Wf': np.round(Wf, 2),
-    'Freq1_GHz': Freq1_GHz,
-    'Freq2_GHz': Freq2_GHz,
-    'Freq3_GHz': Freq3_GHz,
-    'Bandwidth1_MHz': Bandwidth1_MHz.astype(int),
-    'Bandwidth2_MHz': Bandwidth2_MHz.astype(int),
-    'Bandwidth3_MHz': Bandwidth3_MHz.astype(int)
+    # Inputs (10)
+    'S1_mm':   np.round(S1,   3),
+    'S2_mm':   np.round(S2,   3),
+    'S3_mm':   np.round(S3,   3),
+    'S4_mm':   np.round(S4,   3),
+    'd_mm':    np.round(d,    3),
+    'Wf_mm':   np.round(Wf,   3),
+    'Lf_mm':   np.round(Lf,   3),
+    'RSIW_mm': np.round(RSIW, 3),
+    'p_mm':    np.round(p,    3),
+    'h_mm':    np.round(h,    3),
+    # Outputs (6)
+    'f1_GHz':  f1_GHz,
+    'f2_GHz':  f2_GHz,
+    'f3_GHz':  f3_GHz,
+    'BW1_GHz': BW1_GHz,
+    'BW2_GHz': BW2_GHz,
+    'BW3_GHz': BW3_GHz,
 })
 
 # ========================================
@@ -170,23 +207,27 @@ file_size = os.path.getsize(output_file) / 1024
 print(f"\n{'=' * 80}")
 print(f"   DATASET SAVED SUCCESSFULLY!")
 print(f"{'=' * 80}")
-print(f"   File: {output_file}")
-print(f"   Rows: {len(df)}")
-print(f"   Columns: {len(df.columns)}")
-print(f"   Size: {file_size:.1f} KB")
+print(f"   File    : {output_file}")
+print(f"   Rows    : {len(df)}")
+print(f"   Columns : {len(df.columns)}  (10 inputs + 6 outputs)")
+print(f"   Size    : {file_size:.1f} KB")
 
 # Verification
-constraint_ok = ((df['S1'] > df['S2']) & (df['S2'] > df['S3']) & (df['S3'] > df['S4'])).all()
+constraint_ok = ((df['S1_mm'] > df['S2_mm']) &
+                 (df['S2_mm'] > df['S3_mm']) &
+                 (df['S3_mm'] > df['S4_mm'])).all()
 print(f"\n   Verification:")
-print(f"   Total samples: {len(df)} {'[PASS]' if len(df) == 1000 else '[FAIL]'}")
-print(f"   S1 > S2 > S3 > S4: {constraint_ok} {'[PASS]' if constraint_ok else '[FAIL]'}")
-print(f"   No missing values: {df.isnull().sum().sum() == 0} {'[PASS]' if df.isnull().sum().sum() == 0 else '[FAIL]'}")
+print(f"   Total samples       : {len(df)} {'[PASS]' if len(df) == 1000 else '[FAIL]'}")
+print(f"   S1>S2>S3>S4 (radii) : {constraint_ok} {'[PASS]' if constraint_ok else '[FAIL]'}")
+print(f"   No missing values   : {df.isnull().sum().sum() == 0} "
+      f"{'[PASS]' if df.isnull().sum().sum() == 0 else '[FAIL]'}")
 
+print(f"\n   Columns: {list(df.columns)}")
 print(f"\n   First 5 rows:")
 print(df.head().to_string(index=False))
 
 print(f"\n   Statistics:")
-print(df.describe().round(2).to_string())
+print(df.describe().round(3).to_string())
 
 print(f"\n{'=' * 80}")
 print("   DATASET GENERATION COMPLETE!")
